@@ -1,5 +1,7 @@
 import fetch from 'node-fetch';
 
+const { fakeStoreToKlarnaCart } = require('./fakestore');
+
 const getCarts = require('../../static/carts');
 const BASE_URL = 'https://api.playground.klarna.com';
 
@@ -20,8 +22,8 @@ function formatCart(currentCart) {
 }
 
 // 1. Add async createOrder function that returns Klarna response.json()
-async function createOrder(cart_id) {
-	const currentCart = getCarts()[cart_id];
+async function createOrder(fakeStoreCart) {
+	const currentCart = fakeStoreToKlarnaCart(fakeStoreCart);
 	const formatedCart = formatCart(currentCart);
 
 	let order_amount = 0;
@@ -32,6 +34,23 @@ async function createOrder(cart_id) {
 		order_tax_amount += currentCartItem.total_tax_amount;
 	});
 
+	const SHIPPING_LIMIT = 500 * 100;
+	const SHIPPING_PRICE = 39 * 100;
+
+	let shipping_options = [
+		{
+			id: 'express_priority',
+			name: 'EXPRESS 1-2 Days',
+			price: 0,
+			tax_amount: 0,
+			tax_rate: 0
+		}
+	];
+
+	if (order_amount === 0) {
+	} else if (order_amount < SHIPPING_LIMIT) {
+		shipping_options[0].price = SHIPPING_PRICE;
+	}
 	//Sub parts
 	const path = '/checkout/v3/orders';
 	const auth = getKlarnaAuth();
@@ -56,7 +75,8 @@ async function createOrder(cart_id) {
 			checkout: 'https://www.example.com/checkout.html',
 			confirmation: `${process.env.CONFIRMATION_URL}/confirmation?order_id={checkout.order.id}`,
 			push: 'https://www.example.com/api/push'
-		}
+		},
+		shipping_options
 	};
 
 	const stringifiedBody = JSON.stringify(body);
